@@ -1,6 +1,6 @@
 pragma solidity ^0.5.0;
 
-contract demo {
+contract AtomicSwap {
     enum State { Empty, Initiator }
 
     struct Swap {
@@ -9,6 +9,7 @@ contract demo {
         uint initTimestamp;
         uint refundTime;
         address payable initiator;
+        uint nonce;
         address payable participant;
         uint256 value;
         bool emptied;
@@ -32,8 +33,7 @@ contract demo {
         uint _refundTime,
         address indexed _participant,
         address indexed _initiator,
-        uint256 _value,
-        bool master
+        uint256 _value
     );
 
     constructor() public {
@@ -94,8 +94,7 @@ contract demo {
             swaps[_hashedSecret].refundTime,
             swaps[_hashedSecret].participant,
             msg.sender,
-            swaps[_hashedSecret].value,
-            _master
+            swaps[_hashedSecret].value
         );
     }
 
@@ -104,7 +103,6 @@ contract demo {
     {
         swaps[_hashedSecret].emptied = true;
         swaps[_hashedSecret].secret = _secret;
-        swaps[_hashedSecret].state = State.Empty;
         
         emit Redeemed(
             _hashedSecret,
@@ -119,6 +117,7 @@ contract demo {
         public isInitiated(_hashedSecret) isRefundable(_hashedSecret) 
     {
         swaps[_hashedSecret].emptied = true;
+        swaps[_hashedSecret].state = State.Empty;
 
         emit Refunded(
             _hashedSecret,    
