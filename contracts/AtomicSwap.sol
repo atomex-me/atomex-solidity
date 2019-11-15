@@ -18,13 +18,13 @@ contract Destructable {
     constructor() public {
         owner = msg.sender;
     }
-    
+
     modifier isDestructable {
         require(msg.sender == owner, "only owner");
         require(address(this).balance == 0, "balance is not zero");
         _;
     }
-    
+
     function destruct() public isDestructable {
         selfdestruct(owner);
     }
@@ -54,40 +54,40 @@ contract AtomicSwap is Destructable {
         uint _value,
         uint _payoff
     );
-    
+
     event Added(
         bytes32 indexed _hashedSecret,
         address _sender,
         uint _value
     );
-    
+
     event Redeemed(
         bytes32 indexed _hashedSecret,
         bytes32 _secret
     );
-    
+
     event Refunded(
         bytes32 indexed _hashedSecret
     );
-    
+
     mapping(bytes32 => Swap) public swaps;
 
     modifier isRefundable(bytes32 _hashedSecret) {
         require(block.timestamp >= swaps[_hashedSecret].refundTimestamp, "refundTimestamp has not passed");
         _;
     }
-    
+
     modifier isRedeemable(bytes32 _hashedSecret, bytes32 _secret) {
         require(block.timestamp < swaps[_hashedSecret].refundTimestamp, "refundTimestamp has already passed");
         require(sha256(abi.encodePacked(sha256(abi.encodePacked(_secret)))) == _hashedSecret, "secret is not correct");
         _;
     }
-    
+
     modifier isInitiated(bytes32 _hashedSecret) {
         require(swaps[_hashedSecret].state == State.Initiated, "swap for this hash is empty or already spent");
         _;
     }
-    
+
     modifier isInitiatable(bytes32 _hashedSecret, uint _refundTimestamp) {
         require(swaps[_hashedSecret].state == State.Empty, "swap for this hash is already initiated");
         require(_refundTimestamp > block.timestamp, "refundTimestamp has already passed");
@@ -100,7 +100,7 @@ contract AtomicSwap is Destructable {
     }
 
     function initiate (bytes32 _hashedSecret, address payable _participant, uint _refundTimestamp, uint _payoff)
-        public payable isInitiatable(_hashedSecret, _refundTimestamp)    
+        public payable isInitiatable(_hashedSecret, _refundTimestamp)
     {
         swaps[_hashedSecret].value = msg.value.sub(_payoff);
         swaps[_hashedSecret].hashedSecret = _hashedSecret;
@@ -119,9 +119,9 @@ contract AtomicSwap is Destructable {
             swaps[_hashedSecret].payoff
         );
     }
-    
+
     function add (bytes32 _hashedSecret)
-        public payable isInitiated(_hashedSecret) isAddable(_hashedSecret)    
+        public payable isInitiated(_hashedSecret) isAddable(_hashedSecret)
     {
         swaps[_hashedSecret].value = swaps[_hashedSecret].value.add(msg.value);
 
@@ -132,12 +132,12 @@ contract AtomicSwap is Destructable {
         );
     }
 
-    function redeem(bytes32 _hashedSecret, bytes32 _secret) 
+    function redeem(bytes32 _hashedSecret, bytes32 _secret)
         public isInitiated(_hashedSecret) isRedeemable(_hashedSecret, _secret)
     {
         swaps[_hashedSecret].secret = _secret;
         swaps[_hashedSecret].state = State.Redeemed;
-        
+
         emit Redeemed(
             _hashedSecret,
             _secret
@@ -152,7 +152,7 @@ contract AtomicSwap is Destructable {
     }
 
     function refund(bytes32 _hashedSecret)
-        public isInitiated(_hashedSecret) isRefundable(_hashedSecret) 
+        public isInitiated(_hashedSecret) isRefundable(_hashedSecret)
     {
         swaps[_hashedSecret].state = State.Refunded;
 
@@ -161,7 +161,7 @@ contract AtomicSwap is Destructable {
         );
 
         swaps[_hashedSecret].initiator.transfer(swaps[_hashedSecret].value.add(swaps[_hashedSecret].payoff));
-        
+
         delete swaps[_hashedSecret];
     }
 }

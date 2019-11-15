@@ -1,4 +1,4 @@
-# Atomex.tz
+# Atomex.sol
 [![Build Status](https://travis-ci.org/atomex-me/atomex-solidity.svg?branch=master)](https://travis-ci.org/atomex-me/atomex-solidity)
 [![ethereum mainnet](https://img.shields.io/badge/ethereum-mainnet-yellow.svg)](https://etherscan.io/address/0xE9C251cbB4881f9e056e40135E7d3EA9A7d037df)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
