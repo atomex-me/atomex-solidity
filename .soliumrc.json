@@ -1,0 +1,13 @@
+ 
+{
+    "extends": "solium:recommended",
+    "plugins": ["security"],
+    "rules": {
+      "array-declarations": 2,
+      "quotes": ["error","double"],
+      "indentation": ["warning", 4],
+      "imports-on-top": 2,
+      "no-empty-blocks": "off",
+      "security/no-block-members": "off"
+    }
+  }

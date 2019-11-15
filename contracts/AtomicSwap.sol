@@ -17,7 +17,7 @@ contract AtomicSwap {
     }
 
     mapping(bytes32 => Swap) public swaps;
-    
+
     event Refunded(
         bytes32 indexed _hashedSecret,
         uint _refundTime
@@ -38,24 +38,24 @@ contract AtomicSwap {
 
     constructor() public {
     }
-    
+
     modifier isRefundable(bytes32 _hashedSecret) {
         require(block.timestamp > swaps[_hashedSecret].initTimestamp + swaps[_hashedSecret].refundTime, "refundTime has not come");
         _;
     }
-    
+
     modifier isRedeemable(bytes32 _hashedSecret, bytes32 _secret) {
         require(block.timestamp <= swaps[_hashedSecret].initTimestamp + swaps[_hashedSecret].refundTime, "refundTime has already come");
         require(sha256(abi.encodePacked(sha256(abi.encodePacked(_secret)))) == _hashedSecret, "secret is not correct");
         _;
     }
-    
+
     modifier isInitiated(bytes32 _hashedSecret) {
         require(swaps[_hashedSecret].emptied == false, "swap for this hash is already emptied");
         require(swaps[_hashedSecret].state == State.Initiator, "no initiated swap for such hash");
         _;
     }
-    
+
     modifier isInitiatable(bytes32 _hashedSecret, bool _master) {
         require(swaps[_hashedSecret].emptied == false, "swap for this hash is already emptied");
         if (_master)
@@ -71,7 +71,7 @@ contract AtomicSwap {
     }
 
     function initiate (bytes32 _hashedSecret, uint _refundTime, address payable _participant, bool _master)
-        public payable isInitiatable(_hashedSecret, _master)    
+        public payable isInitiatable(_hashedSecret, _master)
     {
         if (_master)
         {
@@ -98,12 +98,12 @@ contract AtomicSwap {
         );
     }
 
-    function redeem(bytes32 _hashedSecret, bytes32 _secret) 
+    function redeem(bytes32 _hashedSecret, bytes32 _secret)
         public isInitiated(_hashedSecret) isRedeemable(_hashedSecret, _secret)
     {
         swaps[_hashedSecret].emptied = true;
         swaps[_hashedSecret].secret = _secret;
-        
+
         emit Redeemed(
             _hashedSecret,
             _secret,
@@ -114,13 +114,13 @@ contract AtomicSwap {
     }
 
     function refund(bytes32 _hashedSecret)
-        public isInitiated(_hashedSecret) isRefundable(_hashedSecret) 
+        public isInitiated(_hashedSecret) isRefundable(_hashedSecret)
     {
         swaps[_hashedSecret].emptied = true;
         swaps[_hashedSecret].state = State.Empty;
 
         emit Refunded(
-            _hashedSecret,    
+            _hashedSecret,
             block.timestamp
         );
 
