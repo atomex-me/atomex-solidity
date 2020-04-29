@@ -161,7 +161,7 @@ contract AtomicSwap is ReentrancyGuard {
     }
 
     function activate (bytes32 _hashedSecret)
-        public nonReentrant isInitiated(_hashedSecret) isNotActivated(_hashedSecret) onlyByInitiator(_hashedSecret)
+        public isInitiated(_hashedSecret) isNotActivated(_hashedSecret) onlyByInitiator(_hashedSecret)
     {
         swaps[_hashedSecret].active = true;
 
@@ -171,7 +171,7 @@ contract AtomicSwap is ReentrancyGuard {
     }
 
     function redeem(bytes32 _hashedSecret, bytes32 _secret)
-        public nonReentrant isInitiated(_hashedSecret) isRedeemable(_hashedSecret, _secret)
+        public nonReentrant isInitiated(_hashedSecret) isActivated(_hashedSecret) isRedeemable(_hashedSecret, _secret)
     {
         swaps[_hashedSecret].state = State.Redeemed;
 
@@ -180,9 +180,14 @@ contract AtomicSwap is ReentrancyGuard {
             _secret
         );
 
-        swaps[_hashedSecret].participant.transfer(swaps[_hashedSecret].value);
-        if (swaps[_hashedSecret].payoff > 0) {
-            msg.sender.transfer(swaps[_hashedSecret].payoff);
+        if (block.timestamp > swaps[_hashedSecret].refundTimestamp.sub(swaps[_hashedSecret].countdown)) {
+            swaps[_hashedSecret].participant.transfer(swaps[_hashedSecret].value);
+            if (swaps[_hashedSecret].payoff > 0) {
+                msg.sender.transfer(swaps[_hashedSecret].payoff);
+            }
+        }
+        else {
+            swaps[_hashedSecret].participant.transfer(swaps[_hashedSecret].value.add(swaps[_hashedSecret].payoff));
         }
 
         delete swaps[_hashedSecret];
