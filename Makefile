@@ -7,13 +7,7 @@ export $(shell sed 's/=.*//' .env)
 test:
 	npm run solium && npm run truffle
 
-deploy-ropsten:
-	npm run deploy_ropsten 2>&1| tee deploy.output
-
-verify-ropsten:
-	npm run verify_ropsten
-
-deploy-ropsten:
+github-deployment:
 	CONTRACT_ADDRESS=$$(cat deploy.output | grep "contract address" | awk '{ print $$4 }' | tail -1)
 	ETHERSCAN_URL=https://ropsten.etherscan.io/address/$$CONTRACT_ADDRESS
 	echo "Check out deployed contract at $$ETHERSCAN_URL"
@@ -27,3 +21,8 @@ deploy-ropsten:
 		-H "Accept: application/vnd.github.ant-man-preview+json" \
 		-H "Authorization: token $$GH_TOKEN" \
 		-d "{ \"state\": \"success\", \"environment\": \"ropsten\", \"environment_url\": \"$$ETHERSCAN_URL\" }"
+
+ropsten:
+	npm run deploy_ropsten 2>&1| tee deploy.output
+	$(MAKE) github-deployment
+	npm run verify_ropsten
