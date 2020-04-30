@@ -9,11 +9,11 @@ cache:
 install:
   - npm install
 
-script:
-  - npm run test
-
-before_deploy:
+before_script:
   - touch .env
+
+script:
+  - make test
 
 deploy:
   provider: script
@@ -22,3 +22,7 @@ deploy:
   on:
     branch: master
     tags: true
+
+after_deploy:
+  - make github-deployment
+  - make verify-ropsten

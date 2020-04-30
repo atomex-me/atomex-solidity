@@ -9,8 +9,8 @@
   "scripts": {
     "solium": "./node_modules/.bin/solium --no-soliumignore -d contracts",
     "truffle": "./node_modules/.bin/truffle test",
-    "test": "npm run solium && npm run truffle",
-    "deploy": "./node_modules/.bin/truffle migrate --network ropsten"
+    "deploy_ropsten": "./node_modules/.bin/truffle migrate --network ropsten",
+    "verify_ropsten": "./node_modules/.bin/truffle run verify --network ropsten --delay 30000 --verbose ./build/contracts/*.json"
   },
   "repository": {
     "type": "git",
@@ -33,6 +33,7 @@
     "dotenv": "^8.2.0",
     "solium": "^1.2.5",
     "truffle": "^5.1.0",
-    "truffle-hdwallet-provider": "^1.0.17"
+    "truffle-hdwallet-provider": "^1.0.17",
+    "verify-on-etherscan": "^1.2.1"
   }
 }

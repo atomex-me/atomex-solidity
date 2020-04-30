@@ -2,9 +2,18 @@ include .env
 export $(shell sed 's/=.*//' .env)
 
 .ONESHELL:
+.PHONY: test
+
+test:
+	npm run solium && npm run truffle
 
 deploy-ropsten:
-	npm run deploy 2>&1| tee deploy.output
+	npm run deploy_ropsten 2>&1| tee deploy.output
+
+verify-ropsten:
+	npm run verify_ropsten
+
+deploy-ropsten:
 	CONTRACT_ADDRESS=$$(cat deploy.output | grep "contract address" | awk '{ print $$4 }' | tail -1)
 	ETHERSCAN_URL=https://ropsten.etherscan.io/address/$$CONTRACT_ADDRESS
 	echo "Check out deployed contract at $$ETHERSCAN_URL"

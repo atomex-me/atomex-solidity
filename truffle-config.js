@@ -18,5 +18,6 @@ module.exports = {
       network_id: 3,
       gas: 5500000
     }
-  }
+  },
+  plugins: ["verify-on-etherscan"]
 };

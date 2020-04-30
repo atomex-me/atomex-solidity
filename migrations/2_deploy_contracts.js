@@ -1,5 +1,5 @@
-var AtomicSwap = artifacts.require("../contracts/AtomicSwap.sol");
+var Atomex = artifacts.require("../contracts/Atomex.sol");
 
 module.exports = function(deployer) {
-  deployer.deploy(AtomicSwap);
+  deployer.deploy(Atomex);
 };

@@ -1,4 +1,4 @@
-const AtomicSwap = artifacts.require('../contracts/AtomicSwap.sol');
+const Atomex = artifacts.require('../contracts/Atomex.sol');
 
 const sleep = async function (time) {
     await web3.currentProvider.send({
@@ -27,11 +27,11 @@ function getCurrentTime() {
     })
 }
 
-contract('AtomicSwap', async (accounts) => {
+contract('Atomex', async (accounts) => {
     let contract;
 
     beforeEach(async function(){
-        contract = await AtomicSwap.new();
+        contract = await Atomex.new();
     });
 
     it('should initiate properly', async () => {

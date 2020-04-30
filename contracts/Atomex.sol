@@ -29,7 +29,7 @@ contract ReentrancyGuard {
     }
 }
 
-contract AtomicSwap is ReentrancyGuard {
+contract Atomex is ReentrancyGuard {
     using SafeMath for uint256;
 
     enum State { Empty, Initiated, Redeemed, Refunded }
