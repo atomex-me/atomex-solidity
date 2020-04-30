@@ -124,8 +124,8 @@ contract Atomex is ReentrancyGuard {
 
 
     function initiate(
-        bytes32 _hashedSecret, address payable _participant, uint _refundTimestamp,
-        uint _countdown, uint _payoff, bool _active)
+        bytes32 _hashedSecret, address payable _participant, uint256 _refundTimestamp,
+        uint256 _countdown, uint256 _payoff, bool _active)
         public payable nonReentrant isInitiatable(_hashedSecret, _participant, _refundTimestamp, _countdown)
     {
         swaps[_hashedSecret].value = msg.value.sub(_payoff);
