@@ -16,7 +16,8 @@ module.exports = {
     "ropsten": {
       provider: () => new HDWalletProvider(process.env.MNEMONIC, `https://ropsten.infura.io/v3/${process.env.INFURA_ROPSTEN_TOKEN}`),
       network_id: 3,
-      gas: 5500000
+      gas: 5500000,
+      from: "0xd88d71de7e0544e3227785ae16d39b3623e9d90d"
     }
   },
   plugins: ["verify-on-etherscan"]

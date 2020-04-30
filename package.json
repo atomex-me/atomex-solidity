@@ -10,7 +10,7 @@
     "solium": "./node_modules/.bin/solium --no-soliumignore -d contracts",
     "truffle": "./node_modules/.bin/truffle test",
     "deploy_ropsten": "./node_modules/.bin/truffle migrate --network ropsten",
-    "verify_ropsten": "./node_modules/.bin/truffle run verify --network ropsten --delay 30000 --verbose ./build/contracts/*.json"
+    "verify_ropsten": "./node_modules/.bin/truffle run verify --network ropsten --delay 30000 --verbose ./build/contracts/Atomex.json"
   },
   "repository": {
     "type": "git",

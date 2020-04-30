@@ -18,7 +18,11 @@ script:
 deploy:
   provider: script
   skip_cleanup: true
-  script: make ropsten
+  script: make deploy-ropsten
   on:
     branch: master
     tags: true
+
+after_deploy:
+  - make github-deployment
+  - npm run verify_ropsten
