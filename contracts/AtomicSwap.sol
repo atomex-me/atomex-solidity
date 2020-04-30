@@ -1,6 +1,6 @@
 pragma solidity ^0.5.0;
 
-// From file: openzeppelin-contracts/contracts/math/SafeMath.sol 
+// From file: openzeppelin-contracts/contracts/math/SafeMath.sol
 library SafeMath {
     function add(uint a, uint b) internal pure returns (uint c) {
         c = a + b;
@@ -13,7 +13,7 @@ library SafeMath {
     }
 }
 
-// File: openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol 
+// File: openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol
 contract ReentrancyGuard {
     bool private _notEntered;
 
@@ -104,8 +104,8 @@ contract AtomicSwap is ReentrancyGuard {
     modifier isActivated(bytes32 _hashedSecret) {
         require(swaps[_hashedSecret].active, "swap is not active");
         _;
-    }    
-    
+    }
+
     modifier isNotActivated(bytes32 _hashedSecret) {
         require(!swaps[_hashedSecret].active, "swap is already activated");
         _;
@@ -123,7 +123,9 @@ contract AtomicSwap is ReentrancyGuard {
     }
 
 
-   function initiate (bytes32 _hashedSecret, address payable _participant, uint _refundTimestamp, uint _countdown, uint _payoff, bool _active)
+    function initiate(
+        bytes32 _hashedSecret, address payable _participant, uint _refundTimestamp,
+        uint _countdown, uint _payoff, bool _active)
         public payable nonReentrant isInitiatable(_hashedSecret, _participant, _refundTimestamp, _countdown)
     {
         swaps[_hashedSecret].value = msg.value.sub(_payoff);

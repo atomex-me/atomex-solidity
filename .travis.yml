@@ -11,3 +11,14 @@ install:
 
 script:
   - npm run test
+
+before_deploy:
+  - touch .env
+
+deploy:
+  provider: script
+  skip_cleanup: true
+  script: make deploy-ropsten
+  on:
+    branch: master
+    tags: true

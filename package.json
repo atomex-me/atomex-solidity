@@ -9,7 +9,8 @@
   "scripts": {
     "solium": "./node_modules/.bin/solium --no-soliumignore -d contracts",
     "truffle": "./node_modules/.bin/truffle test",
-    "test": "npm run solium && npm run truffle"
+    "test": "npm run solium && npm run truffle",
+    "deploy": "./node_modules/.bin/truffle migrate --network ropsten"
   },
   "repository": {
     "type": "git",
@@ -29,7 +30,9 @@
   },
   "homepage": "https://github.com/atomex-me/atomex-solidity#readme",
   "dependencies": {
+    "dotenv": "^8.2.0",
     "solium": "^1.2.5",
-    "truffle": "^5.1.0"
+    "truffle": "^5.1.0",
+    "truffle-hdwallet-provider": "^1.0.17"
   }
 }
