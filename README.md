@@ -1,6 +1,6 @@
 # Atomex.sol
 [![Build Status](https://travis-ci.org/atomex-me/atomex-solidity.svg?branch=master)](https://travis-ci.org/atomex-me/atomex-solidity)
-[![ethereum mainnet](https://img.shields.io/badge/ethereum-mainnet-yellow.svg)](https://etherscan.io/address/0xE9C251cbB4881f9e056e40135E7d3EA9A7d037df)
+[![ethereum mainnet](https://img.shields.io/badge/ethereum-mainnet-yellow.svg)](https://etherscan.io/address/0x993E67d0A90ed59aA65756099eB5d7857E56021b)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
 Atomex protocol implementation for Ethereum blockchain
@@ -17,8 +17,8 @@ Atomex protocol implementation for Ethereum blockchain
 * Trading APIs for wallets/traders
 
 ## Deployed contracts
-* Ethereum mainnet: [0xE9C251cbB4881f9e056e40135E7d3EA9A7d037df](https://etherscan.io/address/0xE9C251cbB4881f9e056e40135E7d3EA9A7d037df)
-* Ethereum ropsten: [0x527d1049837edf5f99c287a41a87702686082bf8](https://ropsten.etherscan.io/address/0x527d1049837edf5f99c287a41a87702686082bf8)
+* Ethereum mainnet: [0x993E67d0A90ed59aA65756099eB5d7857E56021b](https://etherscan.io/address/0x993E67d0A90ed59aA65756099eB5d7857E56021b)
+* Ethereum ropsten: [0x66eC93ab6CC5a08c077a92055F5409bf82C47e83](https://ropsten.etherscan.io/address/0x66eC93ab6CC5a08c077a92055F5409bf82C47e83)
 
 ## Resources
 Last version of desktop client is available at [atomex.me](https://atomex.me)
