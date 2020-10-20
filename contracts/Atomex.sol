@@ -29,7 +29,127 @@ contract ReentrancyGuard {
     }
 }
 
-contract Atomex is ReentrancyGuard {
+contract Ownable {
+    address private _owner;
+    address private _successor;
+    
+    event OwnershipTransferred(address previousOwner, address newOwner);
+    event NewOwnerProposed(address previousOwner, address newOwner);
+    
+    constructor() public {
+        setOwner(msg.sender);
+    }
+    
+    function owner() public view returns (address) {
+        return _owner;
+    }
+    
+    function successor() public view returns (address) {
+        return _successor;
+    }
+    
+    function setOwner(address newOwner) internal {
+        _owner = newOwner;
+    }
+    
+    function setSuccessor(address newOwner) internal {
+        _successor = newOwner;
+    }
+    
+    modifier onlyOwner() {
+        require(msg.sender == owner());
+        _;
+    }
+    
+    modifier onlySuccessor() {
+        require(msg.sender == successor());
+        _;
+    }
+    
+    function proposeOwner(address newOwner) public onlyOwner {
+        require(newOwner != address(0));
+        emit NewOwnerProposed(owner(), newOwner);
+        setSuccessor(newOwner);
+    }
+    
+    function acceptOwnership() public onlySuccessor {
+        emit OwnershipTransferred(owner(), successor());
+        setOwner(successor());
+    }
+}
+
+contract WatchTower is Ownable, ReentrancyGuard {
+    using SafeMath for uint256;
+    
+    struct Watcher {
+        uint256 deposit;
+        bool registered;
+        uint256 withdrawalTimeout;
+        uint256 withdrawalTimestamp;
+    }
+
+    event NewWatcherProposed(address _newWatcher, uint256 _deposit, uint256 _withdrawalTimeout);
+    event NewWatcherRegistered(address _newWatcher);
+    event WatcherDeactivated(address _watcher);
+    event WatcherWithdrawn(address _watcher);
+    event WatcherRemoved(address _watcher);
+    
+    mapping(address => Watcher) public watchTowers;
+
+    function proposeWatcher (address _newWatcher, uint256 _withdrawalTimeout) public payable {
+        require(_newWatcher != address(0), "invalid watcher address");
+        require(watchTowers[_newWatcher].deposit == 0, "watcher is already registered");
+        require(msg.value > 0, "trasaction value must be greater then zero");
+        
+        emit NewWatcherProposed(_newWatcher, msg.value, _withdrawalTimeout);
+        
+        watchTowers[_newWatcher].deposit = msg.value;
+        watchTowers[_newWatcher].withdrawalTimeout = _withdrawalTimeout;
+    }
+    
+    function acceptWatcher (address _newWatcher) public onlyOwner {
+        require(watchTowers[_newWatcher].deposit > 0, "watcher does not exist");
+        
+        emit NewWatcherRegistered(_newWatcher);
+        
+        watchTowers[_newWatcher].registered = true;
+    }
+    
+    function deactivateWatcher (address _watcher) public {
+        require(msg.sender == _watcher || msg.sender == owner(), "sender is not authorised");
+        require(watchTowers[_watcher].deposit > 0, "watcher does not exist");
+        
+        emit WatcherRemoved(_watcher);
+        
+        watchTowers[_watcher].registered = false;
+        watchTowers[_watcher].withdrawalTimestamp = block.timestamp.add(watchTowers[msg.sender].withdrawalTimeout);
+    }  
+    
+    function withdrawWatcher () public nonReentrant {
+        require(watchTowers[msg.sender].deposit > 0, "watcher does not exist");
+        require(watchTowers[msg.sender].registered == false, "watcher is not deactivated");
+        require(block.timestamp > watchTowers[msg.sender].withdrawalTimestamp, "withdrawalTimestamp has not come");
+        
+        emit WatcherWithdrawn(msg.sender);
+        
+        msg.sender.transfer(watchTowers[msg.sender].deposit);
+        
+        delete watchTowers[msg.sender];
+    }
+    
+    function removeWatcher (address _watcher) internal nonReentrant {
+        require(watchTowers[_watcher].deposit > 0, "watcher does not exist");
+        require(watchTowers[_watcher].registered == true, "watcher is not registered");
+
+        emit WatcherRemoved(_watcher);
+        
+        msg.sender.transfer(watchTowers[_watcher].deposit);
+        
+        delete watchTowers[_watcher];
+    }
+}
+
+contract Atomex is WatchTower {
     using SafeMath for uint256;
 
     enum State { Empty, Initiated, Redeemed, Refunded }
@@ -38,19 +158,23 @@ contract Atomex is ReentrancyGuard {
         bytes32 hashedSecret;
         address payable initiator;
         address payable participant;
+        address payable watcher;
         uint256 refundTimestamp;
+        uint256 refundDeadline;
         uint256 countdown;
         uint256 value;
         uint256 payoff;
         bool active;
         State state;
     }
-
+    
     event Initiated(
         bytes32 indexed _hashedSecret,
         address indexed _participant,
         address _initiator,
+        address _watcher,
         uint256 _refundTimestamp,
+        uint256 _refundDeadline,
         uint256 _countdown,
         uint256 _value,
         uint256 _payoff,
@@ -83,10 +207,11 @@ contract Atomex is ReentrancyGuard {
         _;
     }
 
-    modifier isInitiatable(bytes32 _hashedSecret, address _participant, uint256 _refundTimestamp, uint256 _countdown) {
+    modifier isInitiatable(bytes32 _hashedSecret, address _participant, uint256 _refundTimestamp, uint256 _refundDeadline, uint256 _countdown) {
         require(_participant != address(0), "invalid participant address");
         require(swaps[_hashedSecret].state == State.Empty, "swap for this hash is already initiated");
         require(block.timestamp < _refundTimestamp, "refundTimestamp has already come");
+        require(_refundTimestamp < _refundDeadline, "refundDeadline is less than _refundTimestamp");
         require(_countdown < _refundTimestamp, "countdown exceeds the refundTimestamp");
         _;
     }
@@ -121,18 +246,19 @@ contract Atomex is ReentrancyGuard {
         require(block.timestamp >= swaps[_hashedSecret].refundTimestamp, "refundTimestamp has not come");
         _;
     }
-
-
+    
     function initiate(
-        bytes32 _hashedSecret, address payable _participant, uint256 _refundTimestamp,
-        uint256 _countdown, uint256 _payoff, bool _active)
-        public payable nonReentrant isInitiatable(_hashedSecret, _participant, _refundTimestamp, _countdown)
+        bytes32 _hashedSecret, address payable _participant, address payable _watcher,
+        uint256 _refundTimestamp, uint256 _refundDeadline, uint256 _countdown, uint256 _payoff, bool _active)
+        public payable nonReentrant isInitiatable(_hashedSecret, _participant, _refundTimestamp, _refundDeadline, _countdown)
     {
         swaps[_hashedSecret].value = msg.value.sub(_payoff);
         swaps[_hashedSecret].hashedSecret = _hashedSecret;
         swaps[_hashedSecret].participant = _participant;
         swaps[_hashedSecret].initiator = msg.sender;
+        swaps[_hashedSecret].watcher = _watcher;
         swaps[_hashedSecret].refundTimestamp = _refundTimestamp;
+        swaps[_hashedSecret].refundDeadline = _refundDeadline;
         swaps[_hashedSecret].countdown = _countdown;
         swaps[_hashedSecret].payoff = _payoff;
         swaps[_hashedSecret].active = _active;
@@ -142,7 +268,9 @@ contract Atomex is ReentrancyGuard {
             _hashedSecret,
             _participant,
             msg.sender,
+            _watcher,
             _refundTimestamp,
+            _refundDeadline,
             _countdown,
             msg.value.sub(_payoff),
             _payoff,
@@ -171,8 +299,33 @@ contract Atomex is ReentrancyGuard {
             _hashedSecret
         );
     }
+    
+    function withdraw(bytes32 _hashedSecret, address payable _receiver, uint256 _timeStamp, bool _slash) internal {
+        if (msg.sender == swaps[_hashedSecret].watcher) {
+            _receiver.transfer(swaps[_hashedSecret].value);
+            if (swaps[_hashedSecret].payoff > 0) {
+                msg.sender.transfer(swaps[_hashedSecret].payoff);
+            }
+        }
+        else if (block.timestamp > _timeStamp.sub(swaps[_hashedSecret].countdown)
+            && watchTowers[msg.sender].registered == true) {
+            _receiver.transfer(swaps[_hashedSecret].value);
+            if (swaps[_hashedSecret].payoff > 0) {
+                msg.sender.transfer(swaps[_hashedSecret].payoff);
+            }
+            if(swaps[_hashedSecret].watcher != address(0) && _slash)
+            {
+                removeWatcher(swaps[_hashedSecret].watcher);
+            }
+        }
+        else {
+            _receiver.transfer(swaps[_hashedSecret].value.add(swaps[_hashedSecret].payoff));
+        }
+        
+        delete swaps[_hashedSecret];
+    }
 
-    function redeem(bytes32 _hashedSecret, bytes32 _secret)
+    function redeem(bytes32 _hashedSecret, bytes32 _secret, bool _slash)
         public nonReentrant isInitiated(_hashedSecret) isActivated(_hashedSecret) isRedeemable(_hashedSecret, _secret)
     {
         swaps[_hashedSecret].state = State.Redeemed;
@@ -182,20 +335,10 @@ contract Atomex is ReentrancyGuard {
             _secret
         );
 
-        if (block.timestamp > swaps[_hashedSecret].refundTimestamp.sub(swaps[_hashedSecret].countdown)) {
-            swaps[_hashedSecret].participant.transfer(swaps[_hashedSecret].value);
-            if (swaps[_hashedSecret].payoff > 0) {
-                msg.sender.transfer(swaps[_hashedSecret].payoff);
-            }
-        }
-        else {
-            swaps[_hashedSecret].participant.transfer(swaps[_hashedSecret].value.add(swaps[_hashedSecret].payoff));
-        }
-
-        delete swaps[_hashedSecret];
+        withdraw(_hashedSecret, swaps[_hashedSecret].participant, swaps[_hashedSecret].refundTimestamp, _slash);
     }
 
-    function refund(bytes32 _hashedSecret)
+    function refund(bytes32 _hashedSecret, bool _slash)
         public isInitiated(_hashedSecret) isRefundable(_hashedSecret)
     {
         swaps[_hashedSecret].state = State.Refunded;
@@ -203,9 +346,7 @@ contract Atomex is ReentrancyGuard {
         emit Refunded(
             _hashedSecret
         );
-
-        swaps[_hashedSecret].initiator.transfer(swaps[_hashedSecret].value.add(swaps[_hashedSecret].payoff));
-
-        delete swaps[_hashedSecret];
+        
+        withdraw(_hashedSecret, swaps[_hashedSecret].initiator, swaps[_hashedSecret].refundDeadline, _slash);
     }
 }

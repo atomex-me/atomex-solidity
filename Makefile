@@ -4,17 +4,17 @@ export $(shell sed 's/=.*//' .env)
 .ONESHELL:
 .PHONY: test
 
-test:
-	npm run solium && npm run truffle
+#test:
+#	npm run solium && npm run truffle
 
-deploy-ropsten:
-	npm run deploy_ropsten 2>&1| tee deploy.output
+#deploy-ropsten:
+#	npm run deploy_ropsten 2>&1| tee deploy.output
 
-deploy-mainnet:
-	npm run deploy_mainnet 2>&1| tee deploy.output
+#deploy-mainnet:
+#	npm run deploy_mainnet 2>&1| tee deploy.output
 
-verify-mainnet:
-	npm run verify_mainnet
+#verify-mainnet:
+#	npm run verify_mainnet
 
 github-deployment:
 	CONTRACT_ADDRESS=$$(cat deploy.output | grep "contract address" | awk '{ print $$4 }' | tail -1)
@@ -32,6 +32,6 @@ github-deployment:
 		-d "{ \"state\": \"success\", \"environment\": \"mainnet\", \"environment_url\": \"$$ETHERSCAN_URL\" }"
 
 ropsten:
-	$(MAKE) deploy-ropsten
-	$(MAKE) github-deployment
-	npm run verify_ropsten
+	#$(MAKE) deploy-ropsten
+	#$(MAKE) github-deployment
+	#npm run verify_ropsten
