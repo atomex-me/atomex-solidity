@@ -160,11 +160,9 @@ contract Atomex is WatchTower {
         address payable participant;
         address payable watcher;
         uint256 refundTimestamp;
-        uint256 refundDeadline;
-        uint256 countdown;
+        uint256 watcherDeadline;
         uint256 value;
         uint256 payoff;
-        bool active;
         State state;
     }
     
@@ -174,21 +172,15 @@ contract Atomex is WatchTower {
         address _initiator,
         address _watcher,
         uint256 _refundTimestamp,
-        uint256 _refundDeadline,
-        uint256 _countdown,
+        uint256 _watcherDeadline,
         uint256 _value,
-        uint256 _payoff,
-        bool _active
+        uint256 _payoff
     );
 
     event Added(
         bytes32 indexed _hashedSecret,
         address _sender,
         uint _value
-    );
-
-    event Activated(
-        bytes32 indexed _hashedSecret
     );
 
     event Redeemed(
@@ -207,12 +199,11 @@ contract Atomex is WatchTower {
         _;
     }
 
-    modifier isInitiatable(bytes32 _hashedSecret, address _participant, uint256 _refundTimestamp, uint256 _refundDeadline, uint256 _countdown) {
+    modifier isInitiatable(bytes32 _hashedSecret, address _participant, uint256 _refundTimestamp, uint256 _watcherDeadline) {
         require(_participant != address(0), "invalid participant address");
         require(swaps[_hashedSecret].state == State.Empty, "swap for this hash is already initiated");
         require(block.timestamp < _refundTimestamp, "refundTimestamp has already come");
-        require(_refundTimestamp < _refundDeadline, "refundDeadline is less than _refundTimestamp");
-        require(_countdown < _refundTimestamp, "countdown exceeds the refundTimestamp");
+        require(block.timestamp < _watcherDeadline, "watcherDeadline has already come");
         _;
     }
 
@@ -223,16 +214,6 @@ contract Atomex is WatchTower {
 
     modifier isAddable(bytes32 _hashedSecret) {
         require(block.timestamp < swaps[_hashedSecret].refundTimestamp, "refundTimestamp has already come");
-        _;
-    }
-
-    modifier isActivated(bytes32 _hashedSecret) {
-        require(swaps[_hashedSecret].active, "swap is not active");
-        _;
-    }
-
-    modifier isNotActivated(bytes32 _hashedSecret) {
-        require(!swaps[_hashedSecret].active, "swap is already activated");
         _;
     }
 
@@ -249,8 +230,8 @@ contract Atomex is WatchTower {
     
     function initiate(
         bytes32 _hashedSecret, address payable _participant, address payable _watcher,
-        uint256 _refundTimestamp, uint256 _refundDeadline, uint256 _countdown, uint256 _payoff, bool _active)
-        public payable nonReentrant isInitiatable(_hashedSecret, _participant, _refundTimestamp, _refundDeadline, _countdown)
+        uint256 _refundTimestamp, uint256 _watcherDeadline, uint256 _payoff)
+        public payable nonReentrant isInitiatable(_hashedSecret, _participant, _refundTimestamp, _watcherDeadline)
     {
         swaps[_hashedSecret].value = msg.value.sub(_payoff);
         swaps[_hashedSecret].hashedSecret = _hashedSecret;
@@ -258,10 +239,8 @@ contract Atomex is WatchTower {
         swaps[_hashedSecret].initiator = msg.sender;
         swaps[_hashedSecret].watcher = _watcher;
         swaps[_hashedSecret].refundTimestamp = _refundTimestamp;
-        swaps[_hashedSecret].refundDeadline = _refundDeadline;
-        swaps[_hashedSecret].countdown = _countdown;
+        swaps[_hashedSecret].watcherDeadline = _watcherDeadline;
         swaps[_hashedSecret].payoff = _payoff;
-        swaps[_hashedSecret].active = _active;
         swaps[_hashedSecret].state = State.Initiated;
 
         emit Initiated(
@@ -270,11 +249,9 @@ contract Atomex is WatchTower {
             msg.sender,
             _watcher,
             _refundTimestamp,
-            _refundDeadline,
-            _countdown,
+            _watcherDeadline,
             msg.value.sub(_payoff),
-            _payoff,
-            _active
+            _payoff
         );
     }
 
@@ -290,25 +267,14 @@ contract Atomex is WatchTower {
         );
     }
 
-    function activate (bytes32 _hashedSecret)
-        public isInitiated(_hashedSecret) isNotActivated(_hashedSecret) onlyByInitiator(_hashedSecret)
-    {
-        swaps[_hashedSecret].active = true;
-
-        emit Activated(
-            _hashedSecret
-        );
-    }
-    
-    function withdraw(bytes32 _hashedSecret, address payable _receiver, uint256 _timeStamp, bool _slash) internal {
+    function withdraw(bytes32 _hashedSecret, address payable _receiver, uint256 _watcherDeadLine, bool _slash) internal {
         if (msg.sender == swaps[_hashedSecret].watcher) {
             _receiver.transfer(swaps[_hashedSecret].value);
             if (swaps[_hashedSecret].payoff > 0) {
                 msg.sender.transfer(swaps[_hashedSecret].payoff);
             }
         }
-        else if (block.timestamp > _timeStamp.sub(swaps[_hashedSecret].countdown)
-            && watchTowers[msg.sender].registered == true) {
+        else if (block.timestamp > _watcherDeadLine && watchTowers[msg.sender].registered == true) {
             _receiver.transfer(swaps[_hashedSecret].value);
             if (swaps[_hashedSecret].payoff > 0) {
                 msg.sender.transfer(swaps[_hashedSecret].payoff);
@@ -326,7 +292,7 @@ contract Atomex is WatchTower {
     }
 
     function redeem(bytes32 _hashedSecret, bytes32 _secret, bool _slash)
-        public nonReentrant isInitiated(_hashedSecret) isActivated(_hashedSecret) isRedeemable(_hashedSecret, _secret)
+        public nonReentrant isInitiated(_hashedSecret) isRedeemable(_hashedSecret, _secret)
     {
         swaps[_hashedSecret].state = State.Redeemed;
 
@@ -335,7 +301,7 @@ contract Atomex is WatchTower {
             _secret
         );
 
-        withdraw(_hashedSecret, swaps[_hashedSecret].participant, swaps[_hashedSecret].refundTimestamp, _slash);
+        withdraw(_hashedSecret, swaps[_hashedSecret].participant, swaps[_hashedSecret].watcherDeadline, _slash);
     }
 
     function refund(bytes32 _hashedSecret, bool _slash)
@@ -347,6 +313,6 @@ contract Atomex is WatchTower {
             _hashedSecret
         );
         
-        withdraw(_hashedSecret, swaps[_hashedSecret].initiator, swaps[_hashedSecret].refundDeadline, _slash);
+        withdraw(_hashedSecret, swaps[_hashedSecret].initiator, swaps[_hashedSecret].watcherDeadline, _slash);
     }
 }

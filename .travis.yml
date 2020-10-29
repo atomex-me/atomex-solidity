@@ -20,7 +20,7 @@ deploy:
   skip_cleanup: true
   script: make deploy-ropsten
   on:
-    branch: develop
+    branch: watchTower
     tags: true
 
 after_deploy:
