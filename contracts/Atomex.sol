@@ -57,17 +57,17 @@ contract Ownable {
     }
     
     modifier onlyOwner() {
-        require(msg.sender == owner());
+        require(msg.sender == owner(), "sender is not the owner");
         _;
     }
     
     modifier onlySuccessor() {
-        require(msg.sender == successor());
+        require(msg.sender == successor(), "sender is not the proposed owner");
         _;
     }
     
     function proposeOwner(address newOwner) public onlyOwner {
-        require(newOwner != address(0));
+        require(newOwner != address(0), "invalid owner address");
         emit NewOwnerProposed(owner(), newOwner);
         setSuccessor(newOwner);
     }
@@ -137,7 +137,7 @@ contract WatchTower is Ownable, ReentrancyGuard {
         delete watchTowers[msg.sender];
     }
     
-    function removeWatcher (address _watcher) internal nonReentrant {
+    function removeWatcher (address _watcher) internal {
         require(watchTowers[_watcher].deposit > 0, "watcher does not exist");
         require(watchTowers[_watcher].registered == true, "watcher is not registered");
 
