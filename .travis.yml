@@ -20,9 +20,9 @@ deploy:
   skip_cleanup: true
   script: make deploy-ropsten
   on:
-    branch: master
+    branch: develop
     tags: true
 
 after_deploy:
   - make github-deployment
-  - npm run verify_ropsten
+  #- npm run verify_ropsten
