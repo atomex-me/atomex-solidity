@@ -12,8 +12,8 @@ install:
 before_script:
   - touch .env
 
-script:
-  - make test
+#script:
+#  - make test
 
 deploy:
   provider: script
@@ -23,6 +23,6 @@ deploy:
     branch: watchTower
     tags: true
 
-after_deploy:
-  - make github-deployment
-  #- npm run verify_ropsten
+#after_deploy:
+#  - make github-deployment
+#  - npm run verify_ropsten
