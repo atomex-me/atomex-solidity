@@ -18,11 +18,11 @@ script:
 deploy:
   provider: script
   skip_cleanup: true
-  script: make deploy-ropsten
+#  script: make deploy-ropsten
   on:
     branch: watchTower
     tags: true
 
 after_deploy:
-  - make github-deployment
+#  - make github-deployment
 #  - npm run verify_ropsten

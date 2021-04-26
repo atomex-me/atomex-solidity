@@ -1,4 +1,6 @@
-pragma solidity ^0.5.0;
+// SPDX-License-Identifier: GPL-3.0
+
+pragma solidity ^0.8.0;
 
 // From file: openzeppelin-contracts/contracts/math/SafeMath.sol
 library SafeMath {
@@ -13,30 +15,33 @@ library SafeMath {
     }
 }
 
-// File: openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol
-contract ReentrancyGuard {
-    bool private _notEntered;
+// From file: OpenZeppelin/openzeppelin-contracts/contracts/security/ReentrancyGuard.sol
+abstract contract ReentrancyGuard {
+    uint256 private constant _NOT_ENTERED = 1;
+    uint256 private constant _ENTERED = 2;
 
-    constructor () internal {
-        _notEntered = true;
+    uint256 private _status;
+
+    constructor () {
+        _status = _NOT_ENTERED;
     }
 
     modifier nonReentrant() {
-        require(_notEntered, "ReentrancyGuard: reentrant call");
-        _notEntered = false;
+        require(_status != _ENTERED, "ReentrancyGuard: reentrant call");
+        _status = _ENTERED;
         _;
-        _notEntered = true;
+        _status = _NOT_ENTERED;
     }
 }
 
-contract Ownable {
+abstract contract Ownable {
     address private _owner;
     address private _successor;
     
     event OwnershipTransferred(address previousOwner, address newOwner);
     event NewOwnerProposed(address previousOwner, address newOwner);
     
-    constructor() public {
+    constructor() {
         setOwner(msg.sender);
     }
     
@@ -66,15 +71,20 @@ contract Ownable {
         _;
     }
     
-    function proposeOwner(address newOwner) public onlyOwner {
+    function proposeOwner(address newOwner) public virtual onlyOwner {
         require(newOwner != address(0), "invalid owner address");
         emit NewOwnerProposed(owner(), newOwner);
         setSuccessor(newOwner);
     }
     
-    function acceptOwnership() public onlySuccessor {
+    function acceptOwnership() public virtual onlySuccessor {
         emit OwnershipTransferred(owner(), successor());
         setOwner(successor());
+    }
+    
+    function renounceOwnership() public virtual onlyOwner {
+        emit OwnershipTransferred(owner(), address(0));
+        setOwner(address(0));
     }
 }
 
@@ -123,7 +133,7 @@ contract WatchTower is Ownable, ReentrancyGuard {
 
         emit WatcherWithdrawn(msg.sender);
         
-        msg.sender.transfer(watchTowers[msg.sender].deposit);
+        payable(msg.sender).transfer(watchTowers[msg.sender].deposit);
         
         delete watchTowers[msg.sender];
     }
@@ -131,8 +141,10 @@ contract WatchTower is Ownable, ReentrancyGuard {
 
 contract Atomex is WatchTower {
     using SafeMath for uint256;
+    
+    uint releaseTimeout = 1 weeks;
 
-    enum State { Empty, Initiated, Redeemed, Refunded }
+    enum State { Empty, Initiated, Redeemed, Refunded, Lost }
 
     struct Swap {
         bytes32 hashedSecret;
@@ -171,11 +183,15 @@ contract Atomex is WatchTower {
     event Refunded(
         bytes32 indexed _hashedSecret
     );
+    
+    event Released(
+        bytes32 indexed _hashedSecret
+    );
 
     mapping(bytes32 => Swap) public swaps;
 
-    modifier onlyByInitiator(bytes32 _hashedSecret) {
-        require(msg.sender == swaps[_hashedSecret].initiator, "sender is not the initiator");
+    modifier onlyByInitiator(bytes32 _swapId) {
+        require(msg.sender == swaps[_swapId].initiator, "sender is not the initiator");
         _;
     }
 
@@ -189,41 +205,47 @@ contract Atomex is WatchTower {
         _;
     }
 
-    modifier isInitiated(bytes32 _hashedSecret) {
-        require(swaps[_hashedSecret].state == State.Initiated, "swap for this hash is empty or already spent");
+    modifier isInitiated(bytes32 _swapId) {
+        require(swaps[_swapId].state == State.Initiated, "swap for this ID is empty or already spent");
         _;
     }
 
-    modifier isAddable(bytes32 _hashedSecret) {
-        require(block.timestamp < swaps[_hashedSecret].refundTimestamp, "refundTimestamp has already come");
+    modifier isRedeemable(bytes32 _swapId, bytes32 _secret) {
+        require(block.timestamp < swaps[_swapId].refundTimestamp, "refundTimestamp has already come");
+        require(sha256(abi.encodePacked(sha256(abi.encodePacked(_secret)))) == swaps[_swapId].hashedSecret, "secret is not correct");
         _;
     }
 
-    modifier isRedeemable(bytes32 _hashedSecret, bytes32 _secret) {
-        require(block.timestamp < swaps[_hashedSecret].refundTimestamp, "refundTimestamp has already come");
-        require(sha256(abi.encodePacked(sha256(abi.encodePacked(_secret)))) == _hashedSecret, "secret is not correct");
-        _;
-    }
-
-    modifier isRefundable(bytes32 _hashedSecret) {
-        require(block.timestamp >= swaps[_hashedSecret].refundTimestamp, "refundTimestamp has not come");
+    modifier isRefundable(bytes32 _swapId) {
+        require(block.timestamp >= swaps[_swapId].refundTimestamp, "refundTimestamp has not come");
         _;
     }
     
+    modifier isReleasable(bytes32 _swapId) {
+        require(block.timestamp >= swaps[_swapId].refundTimestamp.add(releaseTimeout), "releaseTimestamp has not come");
+        _;
+    }
+    
+    function multikey(bytes32 _hashedSecret, address _initiator) public pure returns(bytes32) {
+        return sha256(abi.encodePacked(_hashedSecret, _initiator));
+    }
+
     function initiate(
-        bytes32 _hashedSecret, address payable _participant, address payable _watcher,
+        bytes32 _hashedSecret, address _participant, address _watcher,
         uint256 _refundTimestamp, uint256 _watcherDeadline, uint256 _payoff)
         public payable nonReentrant isInitiatable(_hashedSecret, _participant, _refundTimestamp, _watcher, _watcherDeadline)
     {
-        swaps[_hashedSecret].value = msg.value.sub(_payoff);
-        swaps[_hashedSecret].hashedSecret = _hashedSecret;
-        swaps[_hashedSecret].participant = _participant;
-        swaps[_hashedSecret].initiator = msg.sender;
-        swaps[_hashedSecret].watcher = _watcher;
-        swaps[_hashedSecret].refundTimestamp = _refundTimestamp;
-        swaps[_hashedSecret].watcherDeadline = _watcherDeadline;
-        swaps[_hashedSecret].payoff = _payoff;
-        swaps[_hashedSecret].state = State.Initiated;
+        bytes32 swapId = multikey(_hashedSecret, msg.sender);
+        
+        swaps[swapId].value = msg.value.sub(_payoff);
+        swaps[swapId].hashedSecret = _hashedSecret;
+        swaps[swapId].participant = payable(_participant);
+        swaps[swapId].initiator = payable(msg.sender);
+        swaps[swapId].watcher = payable(_watcher);
+        swaps[swapId].refundTimestamp = _refundTimestamp;
+        swaps[swapId].watcherDeadline = _watcherDeadline;
+        swaps[swapId].payoff = _payoff;
+        swaps[swapId].state = State.Initiated;
 
         emit Initiated(
             _hashedSecret,
@@ -237,55 +259,67 @@ contract Atomex is WatchTower {
         );
     }
 
-    function add (bytes32 _hashedSecret)
-        public payable nonReentrant isInitiated(_hashedSecret) isAddable(_hashedSecret)
-    {
-        swaps[_hashedSecret].value = swaps[_hashedSecret].value.add(msg.value);
-
-        emit Added(
-            _hashedSecret,
-            msg.sender,
-            swaps[_hashedSecret].value
-        );
-    }
-
-    function withdraw(bytes32 _hashedSecret, address payable _receiver, uint256 _watcherDeadLine) internal {
-        if (msg.sender == swaps[_hashedSecret].watcher
+    function withdraw(bytes32 _swapId, address payable _receiver, uint256 _watcherDeadLine) internal {
+        if (msg.sender == swaps[_swapId].watcher
             || (block.timestamp >= _watcherDeadLine && watchTowers[msg.sender].active == true)) {
-            _receiver.transfer(swaps[_hashedSecret].value);
-            if (swaps[_hashedSecret].payoff > 0) {
-                msg.sender.transfer(swaps[_hashedSecret].payoff);
+            (_receiver).transfer(swaps[_swapId].value);
+            if (swaps[_swapId].payoff > 0) {
+                payable(msg.sender).transfer(swaps[_swapId].payoff);
             }
         }
         else {
-            _receiver.transfer(swaps[_hashedSecret].value.add(swaps[_hashedSecret].payoff));
+            _receiver.transfer(swaps[_swapId].value.add(swaps[_swapId].payoff));
         }
         
-        delete swaps[_hashedSecret];
+        delete swaps[_swapId];
     }
 
-    function redeem(bytes32 _hashedSecret, bytes32 _secret)
-        public nonReentrant isInitiated(_hashedSecret) isRedeemable(_hashedSecret, _secret)
+    function redeem(bytes32 _swapId, bytes32 _secret)
+        public nonReentrant isInitiated(_swapId) isRedeemable(_swapId, _secret)
     {
-        swaps[_hashedSecret].state = State.Redeemed;
+        swaps[_swapId].state = State.Redeemed;
 
         emit Redeemed(
-            _hashedSecret,
+            swaps[_swapId].hashedSecret,
             _secret
         );
 
-        withdraw(_hashedSecret, swaps[_hashedSecret].participant, swaps[_hashedSecret].watcherDeadline);
+        withdraw(_swapId, swaps[_swapId].participant, swaps[_swapId].watcherDeadline);
     }
-
-    function refund(bytes32 _hashedSecret)
-        public isInitiated(_hashedSecret) isRefundable(_hashedSecret)
+    
+    function refund(bytes32 _swapId, address payable _receiver)
+        public onlyByInitiator(_swapId) isInitiated(_swapId) isRefundable(_swapId) 
     {
-        swaps[_hashedSecret].state = State.Refunded;
+        swaps[_swapId].state = State.Refunded;
 
         emit Refunded(
-            _hashedSecret
+            swaps[_swapId].hashedSecret
         );
         
-        withdraw(_hashedSecret, swaps[_hashedSecret].initiator, swaps[_hashedSecret].watcherDeadline);
+        withdraw(_swapId, _receiver, swaps[_swapId].watcherDeadline);
+    }
+    
+    function refund(bytes32 _swapId)
+        public isInitiated(_swapId) isRefundable(_swapId)
+    {
+        swaps[_swapId].state = State.Refunded;
+
+        emit Refunded(
+            swaps[_swapId].hashedSecret
+        );
+        
+        withdraw(_swapId, swaps[_swapId].initiator, swaps[_swapId].watcherDeadline);
+    }
+
+    function release(bytes32 _swapId)
+        public onlyOwner() isReleasable(_swapId)
+    {
+        swaps[_swapId].state = State.Lost;
+
+        emit Released(
+            swaps[_swapId].hashedSecret
+        );
+        
+        withdraw(_swapId, payable(owner()), swaps[_swapId].watcherDeadline);
     }
 }
