@@ -4,14 +4,20 @@ pragma solidity ^0.8.0;
 
 // From file: openzeppelin-contracts/contracts/math/SafeMath.sol
 library SafeMath {
-    function add(uint a, uint b) internal pure returns (uint c) {
+    function add(uint256 a, uint256 b) internal pure returns (uint256 c) {
         c = a + b;
         require(c >= a, "SafeMath add wrong value");
         return c;
     }
-    function sub(uint a, uint b) internal pure returns (uint) {
+    function sub(uint256 a, uint256 b) internal pure returns (uint256) {
         require(b <= a, "SafeMath sub wrong value");
         return a - b;
+    }
+    function div(uint256 a, uint256 b) internal pure returns (uint256) {
+        // assert(b > 0); // Solidity automatically throws when dividing by 0
+        // uint256 c = a / b;
+        // assert(a == b * c + a % b); // There is no case in which this doesn't hold
+        return a / b;
     }
 }
 
@@ -159,7 +165,7 @@ contract Atomex is WatchTower {
     }
     
     event Initiated(
-        bytes32 indexed _hashedSecret,
+        bytes32 indexed _swapId,
         address indexed _participant,
         address _initiator,
         address _watcher,
@@ -167,12 +173,6 @@ contract Atomex is WatchTower {
         uint256 _watcherDeadline,
         uint256 _value,
         uint256 _payoff
-    );
-
-    event Added(
-        bytes32 indexed _hashedSecret,
-        address _sender,
-        uint _value
     );
 
     event Redeemed(
@@ -200,8 +200,9 @@ contract Atomex is WatchTower {
         require(swaps[_hashedSecret].state == State.Empty, "swap for this hash is already initiated");
         require(block.timestamp < _refundTimestamp, "refundTimestamp has already come");
         require(watchTowers[_watcher].active == true, "watcher does not exist");
-        require(_watcherDeadline < _refundTimestamp && _watcherDeadline.sub(block.timestamp) > _refundTimestamp.sub(_watcherDeadline) ||
-                _watcherDeadline > _refundTimestamp && _refundTimestamp.sub(block.timestamp) > _watcherDeadline.sub(_refundTimestamp), "invalid watcherDeadline");
+        uint256 _refundTimeout = _refundTimestamp.sub(block.timestamp);
+        require((_watcherDeadline < _refundTimestamp && _watcherDeadline.sub(block.timestamp) > _refundTimeout.div(2) && _refundTimestamp.sub(_watcherDeadline) > _refundTimeout.div(5)) ||
+                (_watcherDeadline > _refundTimestamp && _refundTimeout > _watcherDeadline.sub(_refundTimestamp), "invalid watcherDeadline"));
         _;
     }
 
@@ -211,7 +212,7 @@ contract Atomex is WatchTower {
     }
 
     modifier isRedeemable(bytes32 _swapId, bytes32 _secret) {
-        require(block.timestamp < swaps[_swapId].refundTimestamp, "refundTimestamp has already come");
+        require(block.timestamp < swaps[_swapId].refundTimestamp || msg.sender == swaps[_swapId].initiator, "refundTimestamp has already come");
         require(sha256(abi.encodePacked(sha256(abi.encodePacked(_secret)))) == swaps[_swapId].hashedSecret, "secret is not correct");
         _;
     }
@@ -222,7 +223,7 @@ contract Atomex is WatchTower {
     }
     
     modifier isReleasable(bytes32 _swapId) {
-        require(block.timestamp >= swaps[_swapId].refundTimestamp.add(releaseTimeout), "releaseTimestamp has not come");
+        require(block.timestamp >= swaps[_swapId].refundTimestamp.add(releaseTimeout), "releaseTimeout has not passed");
         _;
     }
     
@@ -248,7 +249,7 @@ contract Atomex is WatchTower {
         swaps[swapId].state = State.Initiated;
 
         emit Initiated(
-            _hashedSecret,
+            swapId,
             _participant,
             msg.sender,
             _watcher,
@@ -259,9 +260,10 @@ contract Atomex is WatchTower {
         );
     }
 
-    function withdraw(bytes32 _swapId, address payable _receiver, uint256 _watcherDeadLine) internal {
+    function withdraw(bytes32 _swapId, address payable _receiver) internal {
         if (msg.sender == swaps[_swapId].watcher
-            || (block.timestamp >= _watcherDeadLine && watchTowers[msg.sender].active == true)) {
+            || (block.timestamp >= swaps[_swapId].watcherDeadline && watchTowers[msg.sender].active == true)
+            || (msg.sender == swaps[_swapId].initiator && _receiver == swaps[_swapId].participant)) {
             (_receiver).transfer(swaps[_swapId].value);
             if (swaps[_swapId].payoff > 0) {
                 payable(msg.sender).transfer(swaps[_swapId].payoff);
@@ -284,19 +286,7 @@ contract Atomex is WatchTower {
             _secret
         );
 
-        withdraw(_swapId, swaps[_swapId].participant, swaps[_swapId].watcherDeadline);
-    }
-    
-    function refund(bytes32 _swapId, address payable _receiver)
-        public onlyByInitiator(_swapId) isInitiated(_swapId) isRefundable(_swapId) 
-    {
-        swaps[_swapId].state = State.Refunded;
-
-        emit Refunded(
-            swaps[_swapId].hashedSecret
-        );
-        
-        withdraw(_swapId, _receiver, swaps[_swapId].watcherDeadline);
+        withdraw(_swapId, swaps[_swapId].participant);
     }
     
     function refund(bytes32 _swapId)
@@ -308,7 +298,7 @@ contract Atomex is WatchTower {
             swaps[_swapId].hashedSecret
         );
         
-        withdraw(_swapId, swaps[_swapId].initiator, swaps[_swapId].watcherDeadline);
+        withdraw(_swapId, swaps[_swapId].initiator);
     }
 
     function release(bytes32 _swapId)
@@ -320,6 +310,6 @@ contract Atomex is WatchTower {
             swaps[_swapId].hashedSecret
         );
         
-        withdraw(_swapId, payable(owner()), swaps[_swapId].watcherDeadline);
+        withdraw(_swapId, payable(owner()));
     }
 }
