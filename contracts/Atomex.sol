@@ -195,14 +195,14 @@ contract Atomex is WatchTower {
         _;
     }
 
-    modifier isInitiatable(bytes32 _hashedSecret, address _participant, uint256 _refundTimestamp, address _watcher, uint256 _watcherDeadline) {
+    modifier isInitiatable(address _participant, uint256 _refundTimestamp, address _watcher, uint256 _watcherDeadline) {
         require(_participant != address(0), "invalid participant address");
-        require(swaps[_hashedSecret].state == State.Empty, "swap for this hash is already initiated");
         require(block.timestamp < _refundTimestamp, "refundTimestamp has already come");
         require(watchTowers[_watcher].active == true, "watcher does not exist");
+        
         uint256 _refundTimeout = _refundTimestamp.sub(block.timestamp);
         require((_watcherDeadline < _refundTimestamp && _watcherDeadline.sub(block.timestamp) > _refundTimeout.div(2) && _refundTimestamp.sub(_watcherDeadline) > _refundTimeout.div(5)) ||
-                (_watcherDeadline > _refundTimestamp && _refundTimeout > _watcherDeadline.sub(_refundTimestamp), "invalid watcherDeadline"));
+                (_watcherDeadline > _refundTimestamp && _refundTimeout > _watcherDeadline.sub(_refundTimestamp)), "invalid watcherDeadline");
         _;
     }
 
@@ -232,11 +232,13 @@ contract Atomex is WatchTower {
     }
 
     function initiate(
-        bytes32 _hashedSecret, address _participant, address _watcher,
+        bytes32 _hashedSecret, address _participant,  address _watcher,
         uint256 _refundTimestamp, uint256 _watcherDeadline, uint256 _payoff)
-        public payable nonReentrant isInitiatable(_hashedSecret, _participant, _refundTimestamp, _watcher, _watcherDeadline)
+        public payable nonReentrant isInitiatable(_participant, _refundTimestamp, _watcher, _watcherDeadline)
     {
         bytes32 swapId = multikey(_hashedSecret, msg.sender);
+        
+        require(swaps[swapId].state == State.Empty, "swap for this hash is already initiated");
         
         swaps[swapId].value = msg.value.sub(_payoff);
         swaps[swapId].hashedSecret = _hashedSecret;
@@ -260,7 +262,8 @@ contract Atomex is WatchTower {
         );
     }
 
-    function withdraw(bytes32 _swapId, address payable _receiver) internal {
+    function withdraw(bytes32 _swapId, address payable _receiver) internal 
+    {
         if (msg.sender == swaps[_swapId].watcher
             || (block.timestamp >= swaps[_swapId].watcherDeadline && watchTowers[msg.sender].active == true)
             || (msg.sender == swaps[_swapId].initiator && _receiver == swaps[_swapId].participant)) {
