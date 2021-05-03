@@ -195,14 +195,10 @@ contract Atomex is WatchTower {
         _;
     }
 
-    modifier isInitiatable(address _participant, uint256 _refundTimestamp, address _watcher, uint256 _watcherDeadline) {
+    modifier isInitiatable(address _participant, uint256 _refundTimestamp, address _watcher) {
         require(_participant != address(0), "invalid participant address");
         require(block.timestamp < _refundTimestamp, "refundTimestamp has already come");
         require(watchTowers[_watcher].active == true, "watcher does not exist");
-        
-        uint256 _refundTimeout = _refundTimestamp.sub(block.timestamp);
-        require((_watcherDeadline < _refundTimestamp && _watcherDeadline.sub(block.timestamp) > _refundTimeout.div(2) && _refundTimestamp.sub(_watcherDeadline) > _refundTimeout.div(5)) ||
-                (_watcherDeadline > _refundTimestamp && _refundTimeout > _watcherDeadline.sub(_refundTimestamp)), "invalid watcherDeadline");
         _;
     }
 
@@ -233,12 +229,12 @@ contract Atomex is WatchTower {
 
     function initiate(
         bytes32 _hashedSecret, address _participant,  address _watcher,
-        uint256 _refundTimestamp, uint256 _watcherDeadline, uint256 _payoff)
-        public payable nonReentrant isInitiatable(_participant, _refundTimestamp, _watcher, _watcherDeadline)
+        uint256 _refundTimestamp, bool _watcherForRedeem, uint256 _payoff)
+        public payable nonReentrant isInitiatable(_participant, _refundTimestamp, _watcher)
     {
         bytes32 swapId = multikey(_hashedSecret, msg.sender);
         
-        require(swaps[swapId].state == State.Empty, "swap for this hash is already initiated");
+        require(swaps[swapId].state == State.Empty, "swap for this ID is already initiated");
         
         swaps[swapId].value = msg.value.sub(_payoff);
         swaps[swapId].hashedSecret = _hashedSecret;
@@ -246,7 +242,11 @@ contract Atomex is WatchTower {
         swaps[swapId].initiator = payable(msg.sender);
         swaps[swapId].watcher = payable(_watcher);
         swaps[swapId].refundTimestamp = _refundTimestamp;
-        swaps[swapId].watcherDeadline = _watcherDeadline;
+        
+        if(_watcherForRedeem)
+            swaps[swapId].watcherDeadline = _refundTimestamp.sub(_refundTimestamp.sub(block.timestamp).div(3));
+        else
+            swaps[swapId].watcherDeadline = _refundTimestamp.add(_refundTimestamp.sub(block.timestamp).div(2));
         swaps[swapId].payoff = _payoff;
         swaps[swapId].state = State.Initiated;
 
@@ -256,7 +256,7 @@ contract Atomex is WatchTower {
             msg.sender,
             _watcher,
             _refundTimestamp,
-            _watcherDeadline,
+            swaps[swapId].watcherDeadline,
             msg.value.sub(_payoff),
             _payoff
         );

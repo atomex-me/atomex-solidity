@@ -33,8 +33,9 @@
   "homepage": "https://github.com/atomex-me/atomex-solidity#readme",
   "dependencies": {
     "dotenv": "^8.2.0",
+    "mocha": "^8.3.2",
     "solium": "^1.2.5",
-    "truffle": "^5.1.0",
+    "truffle": "^5.3.3",
     "truffle-hdwallet-provider": "^1.0.17",
     "verify-on-etherscan": "^1.2.1"
   }

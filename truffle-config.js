@@ -30,5 +30,10 @@ module.exports = {
       from: '0xF6E592dfC4445dC3536fa94de33b8A5E1071CAAa'
     }
   },
+  compilers: {
+    solc: {
+      version: "0.8.4+commit.c7e474f2"
+    }
+  },
   plugins: ["verify-on-etherscan"]
 };
