@@ -119,7 +119,7 @@ contract('Atomex', async (accounts) => {
         let value = 100;
         let payoff = 1;
 
-        let swap = await contract.swaps(hashed_secret);
+        let swap = await contract.swaps(hashedID);
         assert.equal(swap.hashedSecret, '0x0000000000000000000000000000000000000000000000000000000000000000');
         assert.equal(swap.initiator, '0x0000000000000000000000000000000000000000');
         assert.equal(swap.participant, '0x0000000000000000000000000000000000000000');
@@ -1104,7 +1104,7 @@ contract('Atomex', async (accounts) => {
         let watcherDeadline = (await getCurrentTime()) + refundTime * 2 / 3;
 
         assert.equal(txReceipt.logs[0].event, "Initiated");
-        assert.equal(txReceipt.logs[0].args._swapId, hashedID);
+        assert.equal(txReceipt.logs[0].args._hashedSecret, hashed_secret);
         assert.deepEqual(BigInt(txReceipt.logs[0].args._refundTimestamp), BigInt(refundTimestamp));
         assert.deepEqual(BigInt(txReceipt.logs[0].args._watcherDeadline), BigInt(watcherDeadline));
         assert.equal(txReceipt.logs[0].args._participant, recipient);
