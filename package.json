@@ -11,8 +11,8 @@
     "truffle": "./node_modules/.bin/truffle test",
     "deploy_ropsten": "./node_modules/.bin/truffle migrate --network ropsten",
     "deploy_mainnet": "./node_modules/.bin/truffle migrate --network mainnet",
-    "verify_ropsten": "./node_modules/.bin/truffle run verify --network ropsten --delay 30000 ./build/contracts/Atomex.json",
-    "verify_mainnet": "./node_modules/.bin/truffle run verify --network mainnet --delay 30000 ./build/contracts/Atomex.json"
+    "verify_ropsten": "./node_modules/.bin/truffle run verify Atomex --network ropsten",
+    "verify_mainnet": "./node_modules/.bin/truffle run verify Atomex --network mainnet"
   },
   "repository": {
     "type": "git",
@@ -36,7 +36,9 @@
     "mocha": "^8.3.2",
     "solium": "^1.2.5",
     "truffle": "^5.3.4",
-    "truffle-hdwallet-provider": "^1.0.17",
-    "verify-on-etherscan": "^1.2.1"
+    "truffle-privatekey-provider": "^1.5.0"
+  },
+  "devDependencies": {
+    "truffle-plugin-verify": "^0.5.7"
   }
 }

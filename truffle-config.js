@@ -25,7 +25,7 @@ module.exports = {
     "mainnet": {
       provider: () => new PrivateKeyProvider(process.env.PRIVATE_KEY_MAINNET, `https://mainnet.infura.io/v3/${process.env.INFURA_TOKEN}`),
       gasPrice: web3.utils.toWei('103', 'gwei'),
-      gas: 2000000,
+      gas: 5500000,
       network_id: 1,
       from: process.env.ADDRESS_MAINNET
     }
@@ -35,5 +35,8 @@ module.exports = {
       version: "0.8.4+commit.c7e474f2"
     }
   },
-  plugins: ["verify-on-etherscan"]
+  api_keys: {
+    etherscan: process.env.ETHERSCAN_API_KEY
+  },
+  plugins: ["truffle-plugin-verify"]
 };
