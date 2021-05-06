@@ -5,7 +5,7 @@ export $(shell sed 's/=.*//' .env)
 .PHONY: test
 
 test:
-	npm run solium && npm run truffle
+	npm run truffle
 
 deploy-ropsten:
 	npm run deploy_ropsten 2>&1| tee deploy.output
@@ -15,6 +15,9 @@ deploy-mainnet:
 
 verify-mainnet:
 	npm run verify_mainnet
+
+verify-ropsten:
+	./node_modules/.bin/truffle run verify Atomex@$$ATOMEX_ADDRESS --network ropsten
 
 github-deployment:
 	CONTRACT_ADDRESS=$$(cat deploy.output | grep "contract address" | awk '{ print $$4 }' | tail -1)
