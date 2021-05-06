@@ -32,10 +32,10 @@
   },
   "homepage": "https://github.com/atomex-me/atomex-solidity#readme",
   "dependencies": {
-    "dotenv": "^8.2.0",
+    "dotenv": "^8.6.0",
     "mocha": "^8.3.2",
     "solium": "^1.2.5",
-    "truffle": "^5.3.3",
+    "truffle": "^5.3.4",
     "truffle-hdwallet-provider": "^1.0.17",
     "verify-on-etherscan": "^1.2.1"
   }
